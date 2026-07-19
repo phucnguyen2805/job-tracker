@@ -7,18 +7,20 @@
 ## Kiến trúc hệ thống
 
 Dự án áp dụng kiến trúc đa dịch vụ (polyglot microservices):
-job-tracker/
-├── backend/        Spring Boot (Java) — Authentication, Task & Job Application CRUD
-├── notification/   Node.js + Socket.io — Real-time notification
-└── frontend/       React — Kanban board, thống kê, dark mode
+
+- **backend/** — Spring Boot (Java): Authentication, Task & Job Application CRUD
+- **notification/** — Node.js + Socket.io: Real-time notification
+- **frontend/** — React: Kanban board, thống kê, dark mode
 
 ## Công nghệ sử dụng
 
-**Backend**: Java, Spring Boot, Spring Security, Spring Data MongoDB, Bean Validation
-**Real-time service**: Node.js, Express, Socket.io
-**Frontend**: React, Vite, Tailwind CSS, React Router, @dnd-kit, Recharts, Axios
-**Database**: MongoDB Atlas
-**Deploy**: Render (backend + notification), Vercel (frontend)
+| Thành phần | Công nghệ |
+|---|---|
+| Backend | Java, Spring Boot, Spring Security, Spring Data MongoDB, Bean Validation |
+| Real-time service | Node.js, Express, Socket.io |
+| Frontend | React, Vite, Tailwind CSS, React Router, @dnd-kit, Recharts, Axios |
+| Database | MongoDB Atlas |
+| Deploy | Render (backend + notification), Vercel (frontend) |
 
 ## Tính năng chính
 
@@ -36,13 +38,16 @@ job-tracker/
 ## Chạy dự án ở local
 
 ### Backend (Spring Boot)
+
 ```bash
 cd backend
 ./mvnw spring-boot:run
 ```
+
 Yêu cầu biến môi trường `SPRING_MONGODB_URI` trỏ tới MongoDB Atlas.
 
 ### Notification (Node.js)
+
 ```bash
 cd notification
 npm install
@@ -50,6 +55,7 @@ npm run dev
 ```
 
 ### Frontend (React)
+
 ```bash
 cd frontend
 npm install
