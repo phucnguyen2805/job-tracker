@@ -1,0 +1,149 @@
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { User, Mail, Lock, UserPlus, Loader2 } from 'lucide-react';
+import api from '../services/api';
+
+function Register() {
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  const validate = () => {
+    const errors = {};
+    if (username.trim().length < 2) {
+      errors.username = 'Tên người dùng phải từ 2 ký tự trở lên';
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.email = 'Email không đúng định dạng';
+    }
+    if (password.length < 6) {
+      errors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
+    }
+    return errors;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setFieldErrors({});
+
+    const clientErrors = validate();
+    if (Object.keys(clientErrors).length > 0) {
+      setFieldErrors(clientErrors);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await api.post('/auth/register', { username, email, password });
+      toast.success('Đăng ký thành công! Hãy đăng nhập.');
+      navigate('/login');
+    } catch (err) {
+      if (err.fieldErrors) {
+        setFieldErrors(err.fieldErrors);
+      }
+      toast.error(err.friendlyMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900 px-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-indigo-600 rounded-2xl mb-4 shadow-lg shadow-indigo-200 dark:shadow-none">
+            <UserPlus className="w-7 h-7 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Tạo tài khoản mới</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">Bắt đầu quản lý công việc hiệu quả hơn</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl shadow-gray-100 dark:shadow-none border border-gray-100 dark:border-gray-700">
+          <div className="mb-4">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 block">Tên người dùng</label>
+            <div className="relative">
+              <User className="w-4 h-4 text-gray-400 dark:text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Nguyễn Văn A"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className={`w-full border rounded-lg pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 transition dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500 ${
+                  fieldErrors.username
+                    ? 'border-red-300 dark:border-red-700 focus:ring-red-400'
+                    : 'border-gray-200 dark:border-gray-600 focus:ring-indigo-500'
+                }`}
+              />
+            </div>
+            {fieldErrors.username && (
+              <p className="text-xs text-red-500 mt-1">{fieldErrors.username}</p>
+            )}
+          </div>
+
+          <div className="mb-4">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 block">Email</label>
+            <div className="relative">
+              <Mail className="w-4 h-4 text-gray-400 dark:text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="email"
+                placeholder="ban@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={`w-full border rounded-lg pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 transition dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500 ${
+                  fieldErrors.email
+                    ? 'border-red-300 dark:border-red-700 focus:ring-red-400'
+                    : 'border-gray-200 dark:border-gray-600 focus:ring-indigo-500'
+                }`}
+              />
+            </div>
+            {fieldErrors.email && (
+              <p className="text-xs text-red-500 mt-1">{fieldErrors.email}</p>
+            )}
+          </div>
+
+          <div className="mb-6">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 block">Mật khẩu</label>
+            <div className="relative">
+              <Lock className="w-4 h-4 text-gray-400 dark:text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="password"
+                placeholder="Tối thiểu 6 ký tự"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={`w-full border rounded-lg pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 transition dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500 ${
+                  fieldErrors.password
+                    ? 'border-red-300 dark:border-red-700 focus:ring-red-400'
+                    : 'border-gray-200 dark:border-gray-600 focus:ring-indigo-500'
+                }`}
+              />
+            </div>
+            {fieldErrors.password && (
+              <p className="text-xs text-red-500 mt-1">{fieldErrors.password}</p>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition flex items-center justify-center gap-2 disabled:opacity-60"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Đăng ký'}
+          </button>
+
+          <p className="text-sm text-center mt-6 text-gray-500 dark:text-gray-400">
+            Đã có tài khoản?{' '}
+            <Link to="/login" className="text-indigo-600 dark:text-indigo-400 font-medium hover:underline">
+              Đăng nhập
+            </Link>
+          </p>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default Register;
