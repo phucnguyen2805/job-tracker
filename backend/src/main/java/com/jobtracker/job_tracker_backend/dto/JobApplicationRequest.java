@@ -25,4 +25,7 @@ public class JobApplicationRequest {
     private String contactPhone;
 
     private List<String> tags;
+
+    private String resumeUrl;
+    private String resumeFileName;
 }

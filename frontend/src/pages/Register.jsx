@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { User, Mail, Lock, UserPlus, Loader2 } from 'lucide-react';
 import api from '../services/api';
+import { GoogleLogin } from '@react-oauth/google';
 
 function Register() {
   const [username, setUsername] = useState('');
@@ -46,6 +47,22 @@ function Register() {
         setFieldErrors(err.fieldErrors);
       }
       toast.error(err.friendlyMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setLoading(true);
+    try {
+      const response = await api.post('/auth/google', {
+        idToken: credentialResponse.credential,
+      });
+      localStorage.setItem('user', JSON.stringify(response.data));
+      toast.success(`Chào mừng, ${response.data.username}!`);
+      navigate('/jobs');
+    } catch (err) {
+      toast.error(err.friendlyMessage || 'Đăng nhập Google thất bại');
     } finally {
       setLoading(false);
     }
@@ -133,6 +150,21 @@ function Register() {
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Đăng ký'}
           </button>
+
+          <div className="flex items-center gap-3 my-4">
+            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+            <span className="text-xs text-gray-400 dark:text-gray-500">hoặc</span>
+            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+          </div>
+
+          <div className="flex justify-center">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => toast.error('Đăng nhập Google thất bại')}
+              text="signup_with"
+              width="100%"
+            />
+          </div>
 
           <p className="text-sm text-center mt-6 text-gray-500 dark:text-gray-400">
             Đã có tài khoản?{' '}

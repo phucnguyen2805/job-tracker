@@ -16,4 +16,6 @@ public class User {
     private String username;
     private String email;
     private String password;
+    private Integer aiUsageCount = 0;
+    private String aiUsageDate; // dạng "yyyy-MM-dd", để reset mỗi ngày
 }

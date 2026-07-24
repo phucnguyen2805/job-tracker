@@ -5,12 +5,18 @@ import {
   Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import {
-  LogOut, LayoutDashboard, Briefcase, Loader2,
+  LogOut, LayoutDashboard, Briefcase,
   TrendingUp, CheckCircle2, XCircle, Clock, BarChart3,
 } from 'lucide-react';
 import { getJobApplications } from '../services/jobApi';
 import DarkModeToggle from '../components/DarkModeToggle';
 import { UserCircle } from 'lucide-react';
+import Skeleton from '../components/Skeleton';
+import { CalendarDays } from 'lucide-react';
+import GlobalSearchModal from '../components/GlobalSearchModal';
+import { Search,  Menu } from 'lucide-react';
+import { HelpCircle } from 'lucide-react';
+import OnboardingTour from '../components/OnboardingTour';
 
 const STATUS_META = {
   APPLIED: { label: 'Đã ứng tuyển', color: '#9CA3AF' },
@@ -24,6 +30,9 @@ function Statistics() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user'));
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -96,36 +105,116 @@ function Statistics() {
             </div>
           </div>
 
-          <nav className="flex items-center gap-2">
+          <nav className="flex items-center gap-1 sm:gap-2">
+            <button
+              onClick={() => setShowGlobalSearch(true)}
+              className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition p-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950"
+            >
+              <Search className="w-4 h-4" />
+            </button>
             <DarkModeToggle />
             <button
-              onClick={() => navigate('/jobs')}
-              className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition px-3 py-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950"
+              onClick={() => setShowOnboarding(true)}
+              className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition p-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950"
             >
-              <Briefcase className="w-4 h-4" />
-              Kanban
+              <HelpCircle className="w-4 h-4" />
             </button>
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition px-3 py-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950"
-            >
-              <LayoutDashboard className="w-4 h-4" />
-              Tasks
-            </button>
-            <button
-              onClick={() => navigate('/profile')}
-              className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition px-3 py-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950"
-            >
-              <UserCircle className="w-4 h-4" />
-              Hồ sơ
-            </button>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition px-3 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950"
-            >
-              <LogOut className="w-4 h-4" />
-              Đăng xuất
-            </button>
+
+            {/* Nav đầy đủ - chỉ hiện trên màn hình từ sm trở lên */}
+            <div className="hidden sm:flex items-center gap-2">
+              <button
+                onClick={() => navigate('/profile')}
+                className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition px-3 py-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950"
+              >
+                <UserCircle className="w-4 h-4" />
+                Hồ sơ
+              </button>
+              <button
+                onClick={() => navigate('/calendar')}
+                className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition px-3 py-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950"
+              >
+                <CalendarDays className="w-4 h-4" />
+                Lịch
+              </button>
+              <button
+                onClick={() => navigate('/jobs')}
+                className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition px-3 py-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950"
+              >
+                <Briefcase className="w-4 h-4" />
+                Kanban
+              </button>
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition px-3 py-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950"
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                Tasks
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition px-3 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950"
+              >
+                <LogOut className="w-4 h-4" />
+                Đăng xuất
+              </button>
+            </div>
+
+            {/* Nút menu - chỉ hiện trên mobile */}
+            <div className="relative sm:hidden">
+              <button
+                onClick={() => setShowMobileMenu(!showMobileMenu)}
+                className="flex items-center p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <Menu className="w-4 h-4" />
+              </button>
+
+              {showMobileMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-30"
+                    onClick={() => setShowMobileMenu(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg shadow-lg z-40 overflow-hidden">
+                    <button
+                      onClick={() => { navigate('/profile'); setShowMobileMenu(false); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <UserCircle className="w-4 h-4" />
+                      Hồ sơ
+                    </button>
+                    <button
+                      onClick={() => { navigate('/calendar'); setShowMobileMenu(false); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <CalendarDays className="w-4 h-4" />
+                      Lịch
+                    </button>
+                    <button
+                      onClick={() => { navigate('/jobs'); setShowMobileMenu(false); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <Briefcase className="w-4 h-4" />
+                      Kanban
+                    </button>
+                    <button
+                      onClick={() => { navigate('/dashboard'); setShowMobileMenu(false); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <LayoutDashboard className="w-4 h-4" />
+                      Tasks
+                    </button>
+                    <div className="border-t border-gray-100 dark:border-gray-700" />
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Đăng xuất
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </nav>
         </div>
       </header>
@@ -140,9 +229,25 @@ function Statistics() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="w-6 h-6 text-indigo-600 dark:text-indigo-400 animate-spin" />
-          </div>
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-4 shadow-sm">
+                  <Skeleton className="w-9 h-9 rounded-lg mb-3" />
+                  <Skeleton className="h-7 w-12 mb-1" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[0, 1].map((i) => (
+                <div key={i} className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-5 shadow-sm">
+                  <Skeleton className="h-4 w-32 mb-4" />
+                  <Skeleton className="h-[260px] w-full" />
+                </div>
+              ))}
+            </div>
+          </>
         ) : total === 0 ? (
           <div className="text-center py-16 bg-white dark:bg-gray-800 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
             <Briefcase className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
@@ -243,6 +348,12 @@ function Statistics() {
           </>
         )}
       </main>
+      <GlobalSearchModal
+        open={showGlobalSearch}
+        onClose={() => setShowGlobalSearch(false)}
+        userId={user?.id}
+      />
+      {showOnboarding && <OnboardingTour onClose={() => setShowOnboarding(false)} />}
     </div>
   );
 }

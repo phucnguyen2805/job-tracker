@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DndContext, useDraggable, useDroppable, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, LogOut, Building2, Calendar, X, Loader2, Trash2, LayoutDashboard, Search, ArrowUpDown, BarChart3, AlertTriangle, Bell } from 'lucide-react';
+import { Plus, LogOut, Building2, Calendar, X, Loader2, Trash2, LayoutDashboard, Search, ArrowUpDown, BarChart3, AlertTriangle, Bell, AlertCircle, Menu } from 'lucide-react';
 import {
   getJobApplications,
   createJobApplication,
@@ -16,6 +16,14 @@ import DarkModeToggle from '../components/DarkModeToggle';
 import { UserCircle } from 'lucide-react';
 import TagInput from '../components/TagInput';
 import { ChevronDown, Phone, Mail, User as UserIcon } from 'lucide-react';
+import Skeleton from '../components/Skeleton';
+import { createTask } from '../services/taskApi';
+import GlobalSearchModal from '../components/GlobalSearchModal';
+import { CalendarDays } from 'lucide-react';
+import { Download } from 'lucide-react';
+import { exportToExcel, exportToPdf } from '../utils/exportUtils';
+import OnboardingTour from '../components/OnboardingTour';
+import { HelpCircle } from 'lucide-react';
 
 const COLUMNS = [
   { id: 'APPLIED', title: 'Đã ứng tuyển', color: 'border-t-gray-400' },
@@ -165,6 +173,17 @@ function JobBoard() {
   const [contactPhone, setContactPhone] = useState('');
   const [tags, setTags] = useState([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [autoCreateTasks, setAutoCreateTasks] = useState(true);
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+
+  const TEMPLATE_TASKS = [
+    'Chuẩn bị CV phù hợp với vị trí này',
+    'Tìm hiểu thông tin về công ty',
+    'Ôn tập câu hỏi phỏng vấn thường gặp',
+  ];
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -184,6 +203,25 @@ function JobBoard() {
   };
 
   useEffect(() => {
+    const seen = localStorage.getItem('onboardingSeen');
+    if (!seen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setShowOnboarding(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowGlobalSearch(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  useEffect(() => {
     if (!user) {
       navigate('/login');
       return;
@@ -192,11 +230,22 @@ function JobBoard() {
     fetchJobs();
   }, []);
 
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
+  if (!user) {
+    return null; 
+  }
+  
+
   const handleCreate = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await createJobApplication({
+      const response = await createJobApplication({
         company,
         position,
         status: 'APPLIED',
@@ -209,6 +258,23 @@ function JobBoard() {
         contactPhone,
         tags,
       });
+
+      // Tự động tạo task mẫu nếu người dùng chọn
+      if (autoCreateTasks) {
+        const newJobId = response.data.id;
+        await Promise.all(
+          TEMPLATE_TASKS.map((title) =>
+            createTask({
+              title,
+              description: '',
+              status: 'TODO',
+              jobApplicationId: newJobId,
+              userId: user.id,
+            })
+          )
+        );
+      }
+
       setCompany('');
       setPosition('');
       setAppliedDate('');
@@ -221,6 +287,11 @@ function JobBoard() {
       setShowAdvanced(false);
       setShowForm(false);
       fetchJobs();
+      toast.success(
+        autoCreateTasks
+          ? 'Đã tạo đơn ứng tuyển kèm 3 công việc chuẩn bị'
+          : 'Đã tạo đơn ứng tuyển'
+      );
     } catch (err) {
       console.error(err);
       toast.error(err.friendlyMessage || 'Có lỗi xảy ra, thử lại nhé.');
@@ -295,60 +366,159 @@ function JobBoard() {
     return 0;
   });
 
+  // Kiểm tra trùng lặp công ty + vị trí (không phân biệt hoa thường, khoảng trắng thừa)
+  const duplicateJob = jobs.find(
+    (j) =>
+      j.company?.trim().toLowerCase() === company.trim().toLowerCase() &&
+      j.position?.trim().toLowerCase() === position.trim().toLowerCase() &&
+      company.trim() !== '' &&
+      position.trim() !== ''
+  );
+
   const overdueJobs = jobs.filter((j) => isOverdue(j.deadline) && j.status !== 'REJECTED');
   const upcomingJobs = jobs.filter((j) => isUpcoming(j.deadline) && j.status !== 'REJECTED');
 
   const initial = user?.username?.charAt(0)?.toUpperCase() || '?';
+
+  const handleExportExcel = () => {
+    exportToExcel(sortedJobs, `job-tracker-${new Date().toISOString().slice(0, 10)}`);
+    setShowExportMenu(false);
+  };
+
+  const handleExportPdf = async () => {
+    setShowExportMenu(false);
+    await exportToPdf(sortedJobs, `job-tracker-${new Date().toISOString().slice(0, 10)}`);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
       <header className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center font-semibold text-sm">
+            <div className="w-9 h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center font-semibold text-sm shrink-0">
               {initial}
             </div>
-            <div>
+            <div className="hidden xs:block sm:block">
               <p className="text-sm text-gray-400 dark:text-gray-500 leading-none">Xin chào</p>
               <p className="font-semibold text-gray-900 dark:text-gray-100 leading-tight">{user?.username}</p>
             </div>
           </div>
 
-          <nav className="flex items-center gap-2">
+          <nav className="flex items-center gap-1 sm:gap-2">
+            <button
+              onClick={() => setShowGlobalSearch(true)}
+              className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition p-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950"
+            >
+              <Search className="w-4 h-4" />
+            </button>
             <DarkModeToggle />
             <button
-              onClick={() => navigate('/statistics')}
-              className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition px-3 py-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950"
+              onClick={() => setShowOnboarding(true)}
+              className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition p-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950"
             >
-              <BarChart3 className="w-4 h-4" />
-              Thống kê
+              <HelpCircle className="w-4 h-4" />
             </button>
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition px-3 py-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950"
-            >
-              <LayoutDashboard className="w-4 h-4" />
-              Tasks
-            </button>
-            <button
-              onClick={() => navigate('/profile')}
-              className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition px-3 py-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950"
-            >
-              <UserCircle className="w-4 h-4" />
-              Hồ sơ
-            </button>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition px-3 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950"
-            >
-              <LogOut className="w-4 h-4" />
-              Đăng xuất
-            </button>
+
+            {/* Nav đầy đủ - chỉ hiện trên màn hình từ sm trở lên */}
+            <div className="hidden sm:flex items-center gap-2">
+              <button
+                onClick={() => navigate('/profile')}
+                className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition px-3 py-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950"
+              >
+                <UserCircle className="w-4 h-4" />
+                Hồ sơ
+              </button>
+              <button
+                onClick={() => navigate('/calendar')}
+                className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition px-3 py-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950"
+              >
+                <CalendarDays className="w-4 h-4" />
+                Lịch
+              </button>
+              <button
+                onClick={() => navigate('/statistics')}
+                className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition px-3 py-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950"
+              >
+                <BarChart3 className="w-4 h-4" />
+                Thống kê
+              </button>
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition px-3 py-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950"
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                Tasks
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition px-3 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950"
+              >
+                <LogOut className="w-4 h-4" />
+                Đăng xuất
+              </button>
+            </div>
+
+            {/* Nút menu - chỉ hiện trên mobile */}
+            <div className="relative sm:hidden">
+              <button
+                onClick={() => setShowMobileMenu(!showMobileMenu)}
+                className="flex items-center p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <Menu className="w-4 h-4" />
+              </button>
+
+              {showMobileMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-30"
+                    onClick={() => setShowMobileMenu(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg shadow-lg z-40 overflow-hidden">
+                    <button
+                      onClick={() => { navigate('/profile'); setShowMobileMenu(false); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <UserCircle className="w-4 h-4" />
+                      Hồ sơ
+                    </button>
+                    <button
+                      onClick={() => { navigate('/calendar'); setShowMobileMenu(false); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <CalendarDays className="w-4 h-4" />
+                      Lịch
+                    </button>
+                    <button
+                      onClick={() => { navigate('/statistics'); setShowMobileMenu(false); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <BarChart3 className="w-4 h-4" />
+                      Thống kê
+                    </button>
+                    <button
+                      onClick={() => { navigate('/dashboard'); setShowMobileMenu(false); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <LayoutDashboard className="w-4 h-4" />
+                      Tasks
+                    </button>
+                    <div className="border-t border-gray-100 dark:border-gray-700" />
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Đăng xuất
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </nav>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {showReminders && (overdueJobs.length > 0 || upcomingJobs.length > 0) && (
           <div className="mb-6 space-y-2">
             {overdueJobs.length > 0 && (
@@ -393,24 +563,53 @@ function JobBoard() {
           </div>
         )}
 
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
           <div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Theo dõi ứng tuyển</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {searchTerm ? `${sortedJobs.length}/${jobs.length}` : jobs.length} đơn ứng tuyển • Kéo thả để đổi trạng thái
             </p>
           </div>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-1.5 bg-indigo-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm"
-          >
-            {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-            {showForm ? 'Đóng' : 'Thêm đơn ứng tuyển'}
-          </button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <div className="relative">
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="flex items-center justify-center gap-1.5 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">Xuất báo cáo</span>
+              </button>
+
+              {showExportMenu && (
+                <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg shadow-lg z-10 overflow-hidden">
+                  <button
+                    onClick={handleExportExcel}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Xuất Excel (.xlsx)
+                  </button>
+                  <button
+                    onClick={handleExportPdf}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Xuất PDF
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="flex items-center justify-center gap-1.5 bg-indigo-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-sm flex-1 sm:flex-none"
+            >
+              {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+              {showForm ? 'Đóng' : 'Thêm đơn ứng tuyển'}
+            </button>
+          </div>
         </div>
 
         {showForm && (
-          <form onSubmit={handleCreate} className="mb-6 p-5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-sm grid grid-cols-1 md:grid-cols-2 gap-3">
+          <form onSubmit={handleCreate} className="mb-6 p-4 sm:p-5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-sm grid grid-cols-1 md:grid-cols-2 gap-3">
             <input
               type="text"
               placeholder="Tên công ty"
@@ -427,6 +626,19 @@ function JobBoard() {
               className="border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               required
             />
+            {duplicateJob && (
+              <div className="md:col-span-2 flex items-start gap-2 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2.5 text-sm text-amber-700 dark:text-amber-400">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>
+                  Bạn đã có đơn ứng tuyển "{duplicateJob.position}" tại "{duplicateJob.company}" (trạng thái:{' '}
+                  {duplicateJob.status === 'APPLIED' && 'Đã ứng tuyển'}
+                  {duplicateJob.status === 'INTERVIEWING' && 'Đang phỏng vấn'}
+                  {duplicateJob.status === 'OFFER' && 'Nhận offer'}
+                  {duplicateJob.status === 'REJECTED' && 'Bị từ chối'}
+                  ). Bạn vẫn có thể tạo thêm nếu đây là lần ứng tuyển khác.
+                </span>
+              </div>
+            )}
             <div>
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Ngày ứng tuyển</label>
               <input
@@ -502,6 +714,16 @@ function JobBoard() {
               </>
             )}
 
+            <label className="md:col-span-2 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoCreateTasks}
+                onChange={(e) => setAutoCreateTasks(e.target.checked)}
+                className="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"
+              />
+              Tự động tạo 3 công việc chuẩn bị mẫu (CV, tìm hiểu công ty, ôn phỏng vấn)
+            </label>
+
             <button
               type="submit"
               disabled={submitting}
@@ -539,8 +761,22 @@ function JobBoard() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[0, 1, 2, 3].map((col) => (
+              <div key={col} className="bg-white dark:bg-gray-800 rounded-xl border-t-4 border-t-gray-200 dark:border-t-gray-700 shadow-sm">
+                <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+                  <Skeleton className="h-4 w-24" />
+                </div>
+                <div className="p-2 space-y-2">
+                  {[0, 1, 2].map((card) => (
+                    <div key={card} className="bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-700 rounded-lg p-3 space-y-2">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
@@ -574,8 +810,14 @@ function JobBoard() {
         onConfirm={confirmDelete}
         onCancel={() => setConfirmDeleteId(null)}
       />
+      <GlobalSearchModal
+        open={showGlobalSearch}
+        onClose={() => setShowGlobalSearch(false)}
+        userId={user?.id}
+      />
+    {showOnboarding && <OnboardingTour onClose={() => setShowOnboarding(false)} />}
     </div>
   );
 }
-
+ 
 export default JobBoard;

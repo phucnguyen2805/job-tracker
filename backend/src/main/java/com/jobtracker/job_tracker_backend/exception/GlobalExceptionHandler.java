@@ -14,7 +14,6 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // Lỗi validate (thiếu field, sai định dạng...)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationErrors(MethodArgumentNotValidException ex) {
         Map<String, String> fieldErrors = new HashMap<>();
@@ -31,22 +30,24 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
-    // Email đã tồn tại
     @ExceptionHandler(EmailAlreadyExistsException.class)
     public ResponseEntity<Map<String, Object>> handleEmailExists(EmailAlreadyExistsException ex) {
         return buildErrorResponse(ex.getMessage(), 409);
     }
 
-    // Sai email/password khi đăng nhập
     @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<Map<String, Object>> handleInvalidCredentials(InvalidCredentialsException ex) {
         return buildErrorResponse(ex.getMessage(), 401);
     }
 
-    // Lỗi chung không lường trước
+    @ExceptionHandler(AiQuotaExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleAiQuotaExceeded(AiQuotaExceededException ex) {
+        return buildErrorResponse(ex.getMessage(), 429);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
-        ex.printStackTrace(); // In lỗi thật ra console để debug
+        ex.printStackTrace();
         return buildErrorResponse("Đã có lỗi xảy ra, vui lòng thử lại sau", 500);
     }
 

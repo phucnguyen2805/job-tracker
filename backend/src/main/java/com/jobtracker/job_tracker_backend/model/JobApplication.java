@@ -30,4 +30,7 @@ public class JobApplication {
 
     // Nhãn phân loại
     private List<String> tags;
+
+    private String resumeUrl;
+    private String resumeFileName;
 }
